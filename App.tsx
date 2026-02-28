@@ -54,14 +54,15 @@ const User = ({ className, size }: { className?: string, size?: number }) => (
 );
 
 const LoginView: React.FC<{ onLogin: (user: any) => void, language: LanguageType }> = ({ onLogin, language }) => {
-  const [formData, setFormData] = useState({ name: '', email: 'admin@example.com', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const handleAuthSubmit = async () => {
     setErrorMessage(null);
-    if (!formData.password.trim()) {
+    if (!formData.email.trim() || !formData.password.trim()) {
       setErrorMessage(t('fillAllFields', language));
       return;
     }
@@ -74,12 +75,32 @@ const LoginView: React.FC<{ onLogin: (user: any) => void, language: LanguageType
         return;
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password
-      });
-      if (error) throw error;
-      if (data.user) onLogin(data.user);
+      if (isSignUp) {
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: formData.name || 'Finance User'
+            }
+          }
+        });
+        if (error) throw error;
+        if (data.user) {
+          if (data.session) {
+            onLogin(data.user);
+          } else {
+            setErrorMessage("Please check your email for confirmation link!");
+          }
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password
+        });
+        if (error) throw error;
+        if (data.user) onLogin(data.user);
+      }
     } catch (err: any) {
       setErrorMessage(err.message);
     } finally {
@@ -107,9 +128,13 @@ const LoginView: React.FC<{ onLogin: (user: any) => void, language: LanguageType
             <Layers size={42} className="text-white drop-shadow-md" strokeWidth={2.5} />
           </div>
           
-          <h1 className="text-6xl font-black tracking-tight leading-none drop-shadow-sm mb-4">Welcome Back!</h1>
+          <h1 className="text-6xl font-black tracking-tight leading-none drop-shadow-sm mb-4">
+            {isSignUp ? "Join Us!" : "Welcome Back!"}
+          </h1>
           <p className="text-[14px] font-medium text-blue-50/90 leading-relaxed mx-auto whitespace-nowrap">
-            Keep your data organized using our AI-powered<br />management dashboard and tracking system.
+            {isSignUp 
+              ? "Create an account to sync your data with Supabase."
+              : "Keep your data organized using our AI-powered\nmanagement dashboard and tracking system."}
           </p>
           
           <div className="pt-6 flex items-center justify-center gap-2">
@@ -125,10 +150,13 @@ const LoginView: React.FC<{ onLogin: (user: any) => void, language: LanguageType
           <div className="text-center mb-10">
             <div className="flex items-center justify-center gap-4 mb-3">
               <h2 className="text-[32px] font-black text-[#0088ff] uppercase tracking-tight leading-none">
-                User Login
+                {isSignUp ? "Create Account" : "User Login"}
               </h2>
             </div>
             <div className="w-16 h-1.5 bg-[#0088ff] mx-auto rounded-full" />
+            <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-widest">
+              {isSignUp ? "Sign up to enable Supabase Cloud Sync" : "Login to access your dashboard"}
+            </p>
           </div>
 
           {errorMessage && (
@@ -137,7 +165,43 @@ const LoginView: React.FC<{ onLogin: (user: any) => void, language: LanguageType
             </div>
           )}
 
-          <div className="space-y-6">
+          <div className="space-y-4">
+            {isSignUp && (
+              <div className="relative">
+                <label className="absolute -top-2.5 left-6 px-2 bg-white text-[#0088ff] text-[10px] font-black uppercase tracking-widest z-10">
+                  Full Name
+                </label>
+                <div className="flex items-center bg-white border border-blue-200 rounded-full px-6 py-3.5 focus-within:border-[#0088ff] focus-within:ring-4 focus-within:ring-blue-50 transition-all group">
+                  <User className="text-blue-300 mr-3 shrink-0 group-focus-within:text-[#0088ff] transition-colors" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="John Doe" 
+                    value={formData.name} 
+                    onChange={e => setFormData({...formData, name: e.target.value})} 
+                    className="w-full bg-white text-slate-700 font-bold outline-none text-sm placeholder:text-slate-300" 
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="relative">
+              <label className="absolute -top-2.5 left-6 px-2 bg-white text-[#0088ff] text-[10px] font-black uppercase tracking-widest z-10">
+                Email Address
+              </label>
+              <div className="flex items-center bg-white border border-blue-200 rounded-full px-6 py-3.5 focus-within:border-[#0088ff] focus-within:ring-4 focus-within:ring-blue-50 transition-all group">
+                <div className="text-blue-300 mr-3 shrink-0 group-focus-within:text-[#0088ff] transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                </div>
+                <input 
+                  type="email" 
+                  placeholder="name@company.com" 
+                  value={formData.email} 
+                  onChange={e => setFormData({...formData, email: e.target.value})} 
+                  className="w-full bg-white text-slate-700 font-bold outline-none text-sm placeholder:text-slate-300" 
+                />
+              </div>
+            </div>
+
             <div className="relative">
               <label className="absolute -top-2.5 left-6 px-2 bg-white text-[#0088ff] text-[10px] font-black uppercase tracking-widest z-10">
                 Password
@@ -162,7 +226,7 @@ const LoginView: React.FC<{ onLogin: (user: any) => void, language: LanguageType
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-4">
               <button 
                 onClick={handleAuthSubmit} 
                 disabled={loading} 
@@ -173,13 +237,30 @@ const LoginView: React.FC<{ onLogin: (user: any) => void, language: LanguageType
                 ) : (
                   <>
                     <span className="text-sm uppercase tracking-widest">
-                      {t('continue', language)}
+                      {isSignUp ? "Create Account" : t('continue', language)}
                     </span>
                     <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
               </button>
             </div>
+
+            <div className="text-center pt-4">
+              <button 
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-[11px] font-black text-slate-400 hover:text-[#0088ff] uppercase tracking-widest transition-colors"
+              >
+                {isSignUp ? "Already have an account? Login" : "Don't have an account? Sign Up"}
+              </button>
+            </div>
+
+            {!isSignUp && (
+              <div className="mt-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+                <p className="text-[9px] font-bold text-blue-600 uppercase tracking-tight leading-relaxed text-center">
+                  Note: Supabase Cloud Sync requires a real account. Bypass password "123456" only enables local mode.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
