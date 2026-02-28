@@ -266,22 +266,34 @@ const AppContent: React.FC = () => {
 
   const syncToSupabase = useCallback(async (data: any) => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    
+    if (!session) {
+      console.warn("Cloud Sync Skipped: No active Supabase session. Please ensure Anonymous Auth is enabled.");
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      return;
+    }
     
     setIsSyncing(true);
-    const { error } = await supabase
-      .from('user_data')
-      .upsert({ 
-        id: session.user.id, 
-        content: data,
-        updated_at: new Date().toISOString()
-      });
-    
-    if (error) console.error("Database Sync Fail:", error.message);
-    
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-    setIsSyncing(false);
-  }, []);
+    try {
+      const { error } = await supabase
+        .from('user_data')
+        .upsert({ 
+          id: session.user.id, 
+          content: data,
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) {
+        console.error("Database Sync Fail:", error.message);
+        showToast("Sync Failed: " + error.message, 'error');
+      }
+    } catch (err: any) {
+      console.error("Sync Exception:", err);
+    } finally {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      setIsSyncing(false);
+    }
+  }, [showToast]);
 
   useEffect(() => {
     loadDataFromCache();
