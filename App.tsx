@@ -62,30 +62,26 @@ const LoginView: React.FC<{ onLogin: (user: any) => void, language: LanguageType
     setLoading(true);
     
     try {
-      // Attempt to sign in with a default account for the "Continue" button
-      // This ensures Supabase sync works if the user exists.
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: 'admin@example.com',
-        password: 'password123'
-      });
+      // Use Supabase Anonymous Sign-in
+      // This creates a user automatically if one doesn't exist
+      const { data, error } = await supabase.auth.signInAnonymously();
       
       if (error) {
-        // If the user doesn't exist in Supabase yet, we still allow entry
-        // and log in as a local admin user.
+        console.error("Auth Error:", error.message);
+        // Fallback to local session if anonymous login fails
         onLogin({ 
-          email: 'admin@example.com', 
-          id: 'admin-id', 
-          user_metadata: { full_name: 'Admin User' } 
+          email: 'guest@example.com', 
+          id: 'guest-id', 
+          user_metadata: { full_name: 'Guest User' } 
         });
       } else if (data.user) {
         onLogin(data.user);
       }
     } catch (err: any) {
-      // Fallback for any other errors
       onLogin({ 
-        email: 'admin@example.com', 
-        id: 'admin-id', 
-        user_metadata: { full_name: 'Admin User' } 
+        email: 'guest@example.com', 
+        id: 'guest-id', 
+        user_metadata: { full_name: 'Guest User' } 
       });
     } finally {
       setLoading(false);
