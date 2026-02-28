@@ -63,17 +63,25 @@ const LoginView: React.FC<{ onLogin: (user: any) => void, language: LanguageType
     
     try {
       // Use Supabase Anonymous Sign-in
-      // This creates a user automatically if one doesn't exist
       const { data, error } = await supabase.auth.signInAnonymously();
       
       if (error) {
         console.error("Auth Error:", error.message);
-        // Fallback to local session if anonymous login fails
-        onLogin({ 
-          email: 'guest@example.com', 
-          id: 'guest-id', 
-          user_metadata: { full_name: 'Guest User' } 
-        });
+        
+        if (error.message.includes('disabled')) {
+          setErrorMessage("সুপাবেজ ড্যাশবোর্ড থেকে 'Anonymous Sign-ins' এনাবল করুন। (Authentication -> Providers -> Anonymous)");
+        } else {
+          setErrorMessage(error.message);
+        }
+
+        // Fallback to local session after a short delay
+        setTimeout(() => {
+          onLogin({ 
+            email: 'guest@example.com', 
+            id: 'guest-id', 
+            user_metadata: { full_name: 'Guest User' } 
+          });
+        }, 4000);
       } else if (data.user) {
         onLogin(data.user);
       }
