@@ -11,14 +11,12 @@ import {
   Pencil,
   AlertTriangle,
   TrendingUp,
-  PieChart as PieIcon,
-  Check,
-  History
+  PieChart as PieIcon
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip
 } from 'recharts';
-import { BettingRecord, Transaction } from './types';
+import { BettingRecord, Transaction, LanguageType, ThemeType } from '../types';
 
 const COLORS = {
   deposit: '#f43f5e', 
@@ -26,21 +24,23 @@ const COLORS = {
 };
 
 interface BettingInfoViewProps {
-  records: BettingRecord[];
-  setRecords: React.Dispatch<React.SetStateAction<BettingRecord[]>>;
-  onAddTransaction: (tx: Omit<Transaction, 'id'>) => string;
-  onEditTransaction: (tx: Transaction) => void;
-  onDeleteTransaction: (id: string) => void;
+  language?: LanguageType;
+  theme?: ThemeType;
+  records?: BettingRecord[];
+  setRecords?: React.Dispatch<React.SetStateAction<BettingRecord[]>>;
+  onAddTransaction?: (tx: Omit<Transaction, 'id'>) => string;
+  onEditTransaction?: (tx: Transaction) => void;
+  onDeleteTransaction?: (id: string) => void;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 const BettingInfoView: React.FC<BettingInfoViewProps> = ({ 
-  records, 
-  setRecords,
-  onAddTransaction,
-  onEditTransaction,
-  onDeleteTransaction,
-  showToast
+  records = [], 
+  setRecords = () => {},
+  onAddTransaction = () => '',
+  onEditTransaction = () => {},
+  onDeleteTransaction = () => {},
+  showToast = () => {}
 }) => {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,7 +49,7 @@ const BettingInfoView: React.FC<BettingInfoViewProps> = ({
   const [editingRecord, setEditingRecord] = useState<BettingRecord | null>(null);
 
   const [formData, setFormData] = useState({
-    type: 'deposit' as 'deposit' | 'withdraw',
+    type: 'deposit' as 'deposit' | 'withdraw' | 'income' | 'expense',
     amount: '',
     date: new Date().toISOString().split('T')[0],
     note: ''
@@ -89,7 +89,15 @@ const BettingInfoView: React.FC<BettingInfoViewProps> = ({
     };
   }, [records, selectedYear]);
 
-  const renderCustomizedLabel = (props: any) => {
+  const renderCustomizedLabel = (props: {
+    cx: number;
+    cy: number;
+    midAngle: number;
+    innerRadius: number;
+    outerRadius: number;
+    percent: number;
+    name: string;
+  }) => {
     const { cx, cy, midAngle, innerRadius, outerRadius, percent, name } = props;
     const RADIAN = Math.PI / 180;
     
@@ -148,10 +156,12 @@ const BettingInfoView: React.FC<BettingInfoViewProps> = ({
     const txDescription = `Betting ${formData.type === 'deposit' ? 'Deposit' : 'Withdraw'} (${formData.note || 'Regular'})`;
 
     if (editingRecord) {
+      let updatedTransactionId = editingRecord.transactionId;
+
       if (formData.type === 'deposit') {
-        if (editingRecord.transactionId) {
+        if (updatedTransactionId) {
           onEditTransaction({
-            id: editingRecord.transactionId,
+            id: updatedTransactionId,
             type: 'expense',
             category: 'Others',
             amount: amt,
@@ -159,19 +169,18 @@ const BettingInfoView: React.FC<BettingInfoViewProps> = ({
             description: txDescription
           });
         } else {
-          const transactionId = onAddTransaction({
+          updatedTransactionId = onAddTransaction({
             type: 'expense',
             category: 'Others',
             amount: amt,
             date: formData.date,
             description: txDescription
           });
-          editingRecord.transactionId = transactionId;
         }
       } else {
-        if (editingRecord.transactionId) {
-          onDeleteTransaction(editingRecord.transactionId);
-          editingRecord.transactionId = undefined;
+        if (updatedTransactionId) {
+          onDeleteTransaction(updatedTransactionId);
+          updatedTransactionId = undefined;
         }
       }
 
@@ -181,7 +190,7 @@ const BettingInfoView: React.FC<BettingInfoViewProps> = ({
         amount: amt,
         date: formData.date,
         note: formData.note,
-        transactionId: editingRecord.transactionId
+        transactionId: updatedTransactionId
       } : r));
       showToast?.('Betting record updated!', 'success');
     } else {
@@ -199,6 +208,9 @@ const BettingInfoView: React.FC<BettingInfoViewProps> = ({
 
       const newRecord: BettingRecord = {
         id: Math.random().toString(36).substr(2, 9),
+        title: formData.note || `${formData.type} Betting`,
+        odds: 1,
+        status: 'Pending',
         type: formData.type,
         amount: amt,
         date: formData.date,
@@ -251,7 +263,7 @@ const BettingInfoView: React.FC<BettingInfoViewProps> = ({
           <select 
             value={selectedYear} 
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="bg-slate-50 dark:bg-slate-800 border border-indigo-100 dark:border-indigo-900/30 rounded-xl px-3 py-1.5 text-[13px] font-black text-indigo-600 dark:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-indigo-900/30 rounded-xl px-3 py-1.5 text-[13px] font-black text-indigo-600 dark:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
           >
             {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
           </select>
@@ -285,7 +297,7 @@ const BettingInfoView: React.FC<BettingInfoViewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm h-[450px] flex flex-col overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm h-[500px] flex flex-col overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
             <h3 className="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <PieIcon size={16} className="text-indigo-600" /> Betting Distribution ({selectedYear})
@@ -325,39 +337,79 @@ const BettingInfoView: React.FC<BettingInfoViewProps> = ({
           </div>
         </div>
 
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm h-[450px] flex flex-col overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
-            <h3 className="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
-              <History size={16} className="text-indigo-600" /> Betting Log History
-            </h3>
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 h-[500px]">
+          {/* Deposit History */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-rose-50/30 dark:bg-rose-900/10 flex justify-between items-center">
+              <h3 className="text-[12px] font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider flex items-center gap-2">
+                <ArrowDownCircle size={16} /> Deposit History
+              </h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              {stats.deposits.length > 0 ? (
+                stats.deposits.sort((a,b) => b.date.localeCompare(a.date)).map(record => (
+                  <div key={record.id} className="p-3 bg-white dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between group hover:border-rose-200 transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                        <ArrowDownCircle size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">{formatDate(record.date)}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">{record.note || 'No description'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[12px] font-black text-rose-600 whitespace-nowrap">
+                        -৳{record.amount.toLocaleString()}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleOpenEdit(record)} className="p-1 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"><Pencil size={12} /></button>
+                        <button onClick={() => { setRecordToDelete(record); setIsDeleteModalOpen(true); }} className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg"><Trash2 size={12} /></button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex h-full items-center justify-center opacity-30 italic text-[11px] uppercase tracking-widest font-black">No Deposits</div>
+              )}
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-            {records.length > 0 ? (
-              records.filter(r => r.date.startsWith(selectedYear)).sort((a,b) => b.date.localeCompare(a.date)).map(record => (
-                <div key={record.id} className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between group hover:border-indigo-200 transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${record.type === 'deposit' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                      {record.type === 'deposit' ? <ArrowDownCircle size={20} /> : <ArrowUpCircle size={20} />}
+
+          {/* Withdraw History */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-emerald-50/30 dark:bg-emerald-900/10 flex justify-between items-center">
+              <h3 className="text-[12px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                <ArrowUpCircle size={16} /> Withdraw History
+              </h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              {stats.withdraws.length > 0 ? (
+                stats.withdraws.sort((a,b) => b.date.localeCompare(a.date)).map(record => (
+                  <div key={record.id} className="p-3 bg-white dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between group hover:border-emerald-200 transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                        <ArrowUpCircle size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">{formatDate(record.date)}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">{record.note || 'No description'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">{formatDate(record.date)}</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{record.note || 'No description'}</p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[12px] font-black text-emerald-600 whitespace-nowrap">
+                        +৳{record.amount.toLocaleString()}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleOpenEdit(record)} className="p-1 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"><Pencil size={12} /></button>
+                        <button onClick={() => { setRecordToDelete(record); setIsDeleteModalOpen(true); }} className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg"><Trash2 size={12} /></button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-[14px] font-black ${record.type === 'deposit' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                      {record.type === 'deposit' ? '-' : '+'}৳{record.amount.toLocaleString()}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => handleOpenEdit(record)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"><Pencil size={14} /></button>
-                      <button onClick={() => { setRecordToDelete(record); setIsDeleteModalOpen(true); }} className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg"><Trash2 size={14} /></button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="flex h-full items-center justify-center opacity-30 italic">Log is empty</div>
-            )}
+                ))
+              ) : (
+                <div className="flex h-full items-center justify-center opacity-30 italic text-[11px] uppercase tracking-widest font-black">No Withdraws</div>
+              )}
+            </div>
           </div>
         </div>
       </div>

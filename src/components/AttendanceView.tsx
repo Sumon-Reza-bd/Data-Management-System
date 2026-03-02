@@ -18,9 +18,9 @@ import {
   ChevronRight,
   UserMinus,
   UtensilsCrossed,
-  Check,
-  History
+  Check
 } from 'lucide-react';
+import { LanguageType, ThemeType, AttendanceRecord } from '../types';
 
 const MONTH_OPTIONS = [
   { label: 'January', value: '01' }, 
@@ -38,12 +38,25 @@ const MONTH_OPTIONS = [
 ];
 
 interface AttendanceViewProps {
-  activitiesList: any[];
-  setActivitiesList: React.Dispatch<React.SetStateAction<any[]>>;
+  language?: LanguageType;
+  theme?: ThemeType;
+  activitiesList?: AttendanceRecord[];
+  setActivitiesList?: React.Dispatch<React.SetStateAction<AttendanceRecord[]>>;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActivitiesList, showToast }) => {
+// Helper component for the green dashed circle with white tick
+const VerifiedBadge = () => (
+  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-emerald-600 rounded-full border border-dashed border-emerald-300 shadow-sm transition-transform hover:scale-110">
+    <Check size={10} strokeWidth={4} className="text-white" />
+  </div>
+);
+
+const AttendanceView: React.FC<AttendanceViewProps> = ({ 
+  activitiesList = [], 
+  setActivitiesList = () => {}, 
+  showToast = () => {} 
+}) => {
   const currentMonthValue = (new Date().getMonth() + 1).toString().padStart(2, '0');
   const currentYearValue = new Date().getFullYear().toString(); 
 
@@ -55,8 +68,8 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<any | null>(null);
-  const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
+  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+  const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     type: 'STANDARD', 
@@ -122,7 +135,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
       holiday: periodFilteredActivities.filter(a => a.status === 'Holiday').length,
       offday: periodFilteredActivities.filter(a => a.status === 'Weekly Off').length,
       late: periodFilteredActivities.filter(a => a.status === 'Late').length,
-      tiffin: periodFilteredActivities.filter(a => isTiffinTime(a.checkOut)).length,
+      tiffin: periodFilteredActivities.filter(a => isTiffinTime(a.checkOut || '')).length,
     };
   }, [periodFilteredActivities]);
 
@@ -184,7 +197,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (record: any) => {
+  const handleOpenEdit = (record: AttendanceRecord) => {
     setEditingRecord(record);
     let initialType = 'STANDARD';
     if (record.status === 'Weekly Off') initialType = 'OFF DAY';
@@ -194,13 +207,13 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
       type: initialType,
       date: record.date,
       multiDates: [],
-      checkIn: record.checkIn === '-' ? '' : record.checkIn,
-      checkOut: record.checkOut === '-' ? '' : record.checkOut
+      checkIn: (record.checkIn === '-' || !record.checkIn) ? '' : record.checkIn,
+      checkOut: (record.checkOut === '-' || !record.checkOut) ? '' : record.checkOut
     });
     setIsModalOpen(true);
   };
 
-  const calculateStatus = (type: string, checkIn: string, checkOut: string) => {
+  const calculateStatus = (type: string, checkIn: string, checkOut: string): AttendanceRecord['status'] => {
     if (type === 'OFF DAY') return 'Weekly Off';
     if (type === 'HOLIDAY') return 'Holiday';
     
@@ -234,10 +247,10 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
       const newRecords = formData.multiDates.map(dateStr => {
         const d = new Date(dateStr);
         const dayName = isNaN(d.getTime()) ? 'Monday' : dayNames[d.getDay()];
-        const finalStatus = calculateStatus(formData.type, '-', '-');
+        const finalStatus = calculateStatus(formData.type, '-', '-') as AttendanceRecord['status'];
         
         return {
-          id: Date.now() + Math.random(),
+          id: String(Date.now() + Math.random()),
           date: dateStr,
           day: dayName,
           status: finalStatus,
@@ -247,7 +260,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
       });
       setActivitiesList(prev => [...newRecords, ...prev]);
     } else {
-      const finalStatus = calculateStatus(formData.type, formData.checkIn, formData.checkOut);
+      const finalStatus = calculateStatus(formData.type, formData.checkIn, formData.checkOut) as AttendanceRecord['status'];
       const d = new Date(formData.date);
       const dayName = isNaN(d.getTime()) ? 'Monday' : dayNames[d.getDay()];
 
@@ -265,7 +278,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
       } else {
         const newRecord = {
           ...updatedData,
-          id: Date.now(),
+          id: String(Date.now() + Math.random()),
         };
         setActivitiesList(prev => [newRecord, ...prev]);
         showToast?.('Attendance saved successfully!', 'success');
@@ -340,30 +353,11 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
     });
   };
 
-  const getBorderColor = (color: string) => {
-    switch (color) {
-      case 'emerald': return 'border-emerald-100 dark:border-emerald-900/30';
-      case 'rose': return 'border-rose-100 dark:border-rose-900/30';
-      case 'indigo': return 'border-indigo-100 dark:border-indigo-900/30';
-      case 'slate': return 'border-slate-200 dark:border-slate-800';
-      case 'amber': return 'border-amber-100 dark:border-amber-900/30';
-      case 'orange': return 'border-orange-100 dark:border-orange-900/30';
-      default: return 'border-slate-200 dark:border-slate-800';
-    }
-  };
-
-  // Helper component for the green dashed circle with white tick
-  const VerifiedBadge = () => (
-    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-emerald-600 rounded-full border border-dashed border-emerald-300 shadow-sm transition-transform hover:scale-110">
-      <Check size={10} strokeWidth={4} className="text-white" />
-    </div>
-  );
-
   return (
     <div className="space-y-4 animate-in fade-in duration-300 relative">
       <div className="flex flex-wrap gap-3 items-center bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-2 pr-3 border-r border-slate-100 dark:border-slate-800">
-          <LayoutGrid size={14} className="text-purple-600" />
+        <div className="flex items-center gap-2 pr-3 border-r border-slate-200 dark:border-slate-800">
+          <LayoutGrid size={14} className="text-indigo-600" />
           <span className="text-[11px] font-black text-slate-500 uppercase tracking-tight">Data Period</span>
         </div>
         
@@ -371,7 +365,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
           <select 
             value={selectedMonth} 
             onChange={(e) => setSelectedMonth(e.target.value)} 
-            className="bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white outline-none border border-slate-200 dark:border-slate-700 hover:border-purple-300 transition-colors min-w-[100px]"
+            className="bg-white dark:bg-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white outline-none border border-slate-200 dark:border-slate-700 hover:border-indigo-300 transition-colors min-w-[100px]"
           >
             <option value="all">All Months</option>
             {MONTH_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -379,7 +373,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
           <select 
             value={selectedYear} 
             onChange={(e) => setSelectedYear(e.target.value)} 
-            className="bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white outline-none border border-slate-200 dark:border-slate-700 hover:border-purple-300 transition-colors"
+            className="bg-white dark:bg-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white outline-none border border-slate-200 dark:border-slate-700 hover:border-indigo-300 transition-colors"
           >
             {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
           </select>
@@ -395,12 +389,12 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
           { label: 'Late', value: statsCount.late, icon: <AlertCircle size={18} />, color: 'amber' },
           { label: 'Tiffin', value: statsCount.tiffin, icon: <UtensilsCrossed size={18} />, color: 'orange' },
         ].map((stat, i) => (
-          <div key={i} className={`bg-white dark:bg-slate-900 p-3 rounded-2xl border-2 ${getBorderColor(stat.color)} shadow-sm flex items-center gap-3 transition-all hover:shadow-md animate-in zoom-in-95 duration-200`}>
-            <div className={`w-9 h-9 bg-${stat.color}-50 dark:bg-${stat.color}-900/20 text-${stat.color}-600 rounded-xl flex items-center justify-center shrink-0`}>
+          <div key={i} className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 transition-all hover:shadow-md animate-in zoom-in-95 duration-200">
+            <div className={`w-9 h-9 bg-${stat.color}-50 dark:bg-${stat.color}-900/20 text-${stat.color}-600 rounded-xl flex items-center justify-center shrink-0 border border-${stat.color}-100 dark:border-${stat.color}-800/30`}>
               {stat.icon}
             </div>
             <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{stat.label}</p>
+              <p className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{stat.label}</p>
               <h3 className="text-lg font-black text-slate-800 dark:text-white leading-none">
                 {stat.value}
               </h3>
@@ -410,13 +404,13 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
       </div>
 
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-        <div className="px-5 py-2 border-b border-indigo-100 dark:border-indigo-900/30 bg-indigo-50/50 dark:bg-indigo-950/20 flex flex-wrap items-center justify-between gap-4 shrink-0 min-h-[44px] relative">
+        <div className="px-5 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-indigo-950/20 flex flex-wrap items-center justify-between gap-4 shrink-0 min-h-[44px] relative">
           <div className="flex items-center gap-3">
-            <h3 className="text-[11px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-tight flex items-center gap-2">
+            <h3 className="text-[11px] font-black text-slate-700 dark:text-indigo-300 uppercase tracking-tight flex items-center gap-2">
               <div className="w-1.5 h-3.5 bg-indigo-600 rounded-full" /> Detailed Attendance Log
             </h3>
-            <div className="h-3.5 w-px bg-indigo-200 dark:bg-indigo-800" />
-            <span className="px-2 py-0.5 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 text-[9px] font-black rounded-full uppercase tracking-widest shadow-sm border border-indigo-100 dark:border-indigo-900/30">
+            <div className="h-3.5 w-px bg-slate-200 dark:bg-indigo-800" />
+            <span className="px-2 py-0.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-indigo-400 text-[9px] font-black rounded-full uppercase tracking-widest shadow-sm border border-slate-200 dark:border-indigo-900/30">
               {statusFilter === 'All' ? (selectedMonth === 'all' ? 'Year' : getSelectedMonthName()) : statusFilter} {selectedYear}
             </span>
           </div>
@@ -468,7 +462,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-slate-50/50 dark:bg-slate-800/30">
+              <tr className="bg-slate-50 dark:bg-slate-800/30">
                 <th className="px-6 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Day / Date</th>
                 <th className="px-6 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Check In</th>
                 <th className="px-6 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Check Out</th>
@@ -481,7 +475,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
                 <tr key={item.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-800/20 transition-colors group">
                   <td className="px-6 py-1.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-700 font-black text-[9px] text-slate-500 uppercase leading-none">
+                      <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-700 font-black text-[9px] text-slate-500 uppercase leading-none">
                         {item.day.substring(0, 3)}
                       </div>
                       <div className="flex flex-col">
@@ -504,7 +498,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ activitiesList, setActi
                           <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                           {item.checkOut}
                         </div>
-                        {isTiffinTime(item.checkOut) && (
+                        {isTiffinTime(item.checkOut || '') && (
                           <div className="ml-1.5 flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase rounded-xl shadow-sm border border-amber-100 dark:border-amber-800/50 transition-transform group-hover:scale-105">
                             <UtensilsCrossed size={8} />
                             Tiffin

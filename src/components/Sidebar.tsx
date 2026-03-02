@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   BarChart3, 
@@ -14,7 +13,7 @@ import {
   CalendarDays,
   LayoutDashboard
 } from 'lucide-react';
-import { AppTab, MenuItem } from './types';
+import { AppTab, MenuItem } from '../types';
 
 interface SidebarProps {
   activeTab: AppTab;

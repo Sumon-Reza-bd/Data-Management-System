@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
 import { Menu, Search, Sun, Moon, ChevronDown, X, Maximize2 } from 'lucide-react';
-import { AppTab, ThemeType } from './types';
+import { AppTab, ThemeType, LanguageType } from '../types';
 
 interface HeaderProps {
   activeTab: AppTab;
-  onOpenMenu: () => void;
-  language?: 'English' | 'বাংলা';
+  onMenuClick: () => void;
+  language: LanguageType;
+  setLanguage: (lang: LanguageType) => void;
   profile: {
     name: string;
     role: string;
@@ -19,8 +20,8 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ 
   activeTab, 
-  onOpenMenu, 
-  language = 'English', 
+  onMenuClick, 
+  language, 
   profile, 
   isSyncing,
   theme,
@@ -34,7 +35,7 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   const translations = {
-    English: {
+    en: {
       [AppTab.DASHBOARD]: 'Dashboard',
       [AppTab.FINANCIAL]: 'Financial Info',
       [AppTab.SALARY_INFO]: 'Salary Info',
@@ -49,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({
       plan: 'Premium Plan',
       close: 'Close Preview'
     },
-    'বাংলা': {
+    bn: {
       [AppTab.DASHBOARD]: 'ড্যাশবোর্ড',
       [AppTab.FINANCIAL]: 'আর্থিক তথ্য',
       [AppTab.SALARY_INFO]: 'বেতন তথ্য',
@@ -72,7 +73,7 @@ const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 h-14 w-full flex items-center justify-between px-4 md:px-6 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 shadow-sm shrink-0 transition-colors">
       <div className="flex items-center gap-3 overflow-hidden">
         <button 
-          onClick={onOpenMenu}
+          onClick={onMenuClick}
           className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg lg:hidden shrink-0 transition-colors border border-indigo-100 dark:border-indigo-800/50"
           aria-label="Open Menu"
         >

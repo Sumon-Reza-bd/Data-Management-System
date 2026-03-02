@@ -1,37 +1,27 @@
 
 import React, { useState } from 'react';
 import { 
-  User, 
   Moon, 
   Sun, 
   LogOut, 
   Camera, 
   Globe, 
   Palette,
-  Check,
   Save,
   Pencil,
   AlertTriangle,
   X,
-  Lock,
   KeyRound,
-  ShieldCheck,
-  Cloud,
-  Database
+  ShieldCheck
 } from 'lucide-react';
-import { LanguageType, ThemeType } from './types';
-import { supabase } from './supabaseClient';
+import { LanguageType, ThemeType, PayrollProfile } from '../types';
+import { supabase, isSupabaseConfigured } from '../supabaseClient';
 
 interface SettingsViewProps {
   language: LanguageType;
   setLanguage: (lang: LanguageType) => void;
-  profile: {
-    name: string;
-    email: string;
-    role: string;
-    imageUrl: string;
-  };
-  setProfile: React.Dispatch<React.SetStateAction<any>>;
+  profile: PayrollProfile;
+  setProfile: React.Dispatch<React.SetStateAction<PayrollProfile>>;
   onLogout: () => void;
   theme: ThemeType;
   setTheme: (theme: ThemeType) => void;
@@ -133,14 +123,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     setIsUpdatingPassword(true);
     try {
+      if (!isSupabaseConfigured) {
+        throw new Error(language === 'bn' ? "সুপাবেস কনফিগার করা নেই" : "Supabase is not configured");
+      }
       const { error } = await supabase.auth.updateUser({
         password: passwordData.newPassword
       });
       if (error) throw error;
       showToast?.(language === 'bn' ? "পাসওয়ার্ড সফলভাবে আপডেট হয়েছে!" : "Password updated successfully!", 'success');
       setPasswordData({ newPassword: '', confirmPassword: '' });
-    } catch (err: any) {
-      showToast?.(err.message, 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      showToast?.(message, 'error');
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -159,10 +153,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleProfileButtonClick = () => {
     if (isEditingProfile) {
-      setProfile((prev: any) => ({
+      setProfile((prev) => ({
         ...prev,
         name: tempProfile.name,
-        avatar: tempProfile.imageUrl
+        imageUrl: tempProfile.imageUrl
       }));
       setIsEditingProfile(false);
       showToast?.(language === 'bn' ? "প্রোফাইল আপডেট হয়েছে!" : "Profile updated!", 'success');
@@ -424,3 +418,5 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     </div>
   );
 };
+
+export default SettingsView;

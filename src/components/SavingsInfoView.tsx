@@ -1,9 +1,10 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   PiggyBank, 
   Plus, 
   X, 
+  Check,
   Pencil, 
   Trash2, 
   Save,
@@ -14,7 +15,6 @@ import {
   Calculator,
   Wallet,
   Filter,
-  Check,
   FileSpreadsheet,
   Upload,
   AlertCircle,
@@ -22,32 +22,40 @@ import {
   ArrowUpRight,
   Target
 } from 'lucide-react';
-import { SavingsGoal, SavingsRecord, Transaction, LanguageType } from './types';
-import { t } from './translations';
+import { SavingsGoal, SavingsRecord, Transaction, LanguageType, ThemeType } from '../types';
+import { TRANSLATIONS } from '../translations';
 
 interface SavingsInfoViewProps {
-  goals: SavingsGoal[];
-  records: SavingsRecord[];
-  setGoals: React.Dispatch<React.SetStateAction<SavingsGoal[]>>;
-  setRecords: React.Dispatch<React.SetStateAction<SavingsRecord[]>>;
-  onAddTransaction: (tx: Omit<Transaction, 'id'>) => string;
-  onEditTransaction: (tx: Transaction) => void;
-  onDeleteTransaction: (id: string) => void;
-  showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
   language: LanguageType;
+  theme: ThemeType;
+  goals?: SavingsGoal[];
+  records?: SavingsRecord[];
+  setGoals?: React.Dispatch<React.SetStateAction<SavingsGoal[]>>;
+  setRecords?: React.Dispatch<React.SetStateAction<SavingsRecord[]>>;
+  onAddTransaction?: (tx: Omit<Transaction, 'id'>) => string;
+  onEditTransaction?: (tx: Transaction) => void;
+  onDeleteTransaction?: (id: string) => void;
+  showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+const VerifiedBadge = () => (
+  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-emerald-600 rounded-full border border-dashed border-emerald-300 shadow-sm transition-transform hover:scale-110">
+    <Check size={10} strokeWidth={4} className="text-white" />
+  </div>
+);
+
 const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({ 
-  goals, 
-  records, 
-  setGoals, 
-  setRecords,
-  onAddTransaction,
-  onEditTransaction,
-  onDeleteTransaction,
-  showToast,
-  language
+  language,
+  goals = [], 
+  records = [], 
+  setGoals = () => {}, 
+  setRecords = () => {},
+  onAddTransaction = () => '',
+  onEditTransaction = () => {},
+  onDeleteTransaction = () => {},
+  showToast = () => {}
 }) => {
+  const t = TRANSLATIONS[language as keyof typeof TRANSLATIONS];
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [isBulkRecordModalOpen, setIsBulkRecordModalOpen] = useState(false);
@@ -81,29 +89,27 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
   });
 
   const [bulkInput, setBulkInput] = useState('');
-  const [bulkPreview, setBulkPreview] = useState<any[]>([]);
   const [bulkGoalId, setBulkGoalId] = useState('');
 
-  useEffect(() => {
+  const bulkPreview = useMemo(() => {
     if (!bulkInput.trim()) {
-      setBulkPreview([]);
-      return;
+      return [];
     }
     const lines = bulkInput.trim().split('\n');
-    const parsed: any[] = [];
+    const parsed: Omit<SavingsRecord, 'id' | 'transactionId' | 'goalId'>[] = [];
 
     lines.slice(0, 50).forEach(line => {
       let parts = line.split('\t');
       if (parts.length < 2) parts = line.split('  ').filter(p => p.trim().length > 0);
       
       if (parts.length >= 2) {
-        let datePart = parts[0].trim();
-        let amountPart = parts[1].trim().replace(/,/g, '');
-        let notePart = parts[2] ? parts[2].trim() : '';
+        const datePart = parts[0].trim();
+        const amountPart = parts[1].trim().replace(/,/g, '');
+        const notePart = parts[2] ? parts[2].trim() : '';
 
         const isValidDate = !isNaN(new Date(datePart).getTime());
         const amount = parseFloat(amountPart);
-
+        
         if (isValidDate && !isNaN(amount)) {
           parsed.push({
             amount,
@@ -113,10 +119,10 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
         }
       }
     });
-    setBulkPreview(parsed);
+    return parsed;
   }, [bulkInput]);
 
-  useEffect(() => {
+  const derivedGoalValues = useMemo(() => {
     const P = parseFloat(goalForm.monthlyDeposit);
     const annualRate = parseFloat(goalForm.profitPercent);
     const yrs = parseFloat(goalForm.years);
@@ -135,18 +141,12 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
         runningBalance += monthlyInterest;
       }
       
-      setGoalForm(prev => ({ 
-        ...prev, 
+      return {
         targetAmount: Math.round(totalInvested).toString(),
-        maturityValue: Math.round(runningBalance).toString() 
-      }));
-    } else {
-      setGoalForm(prev => ({ 
-        ...prev, 
-        targetAmount: '',
-        maturityValue: '' 
-      }));
+        maturityValue: Math.round(runningBalance).toString()
+      };
     }
+    return { targetAmount: '', maturityValue: '' };
   }, [goalForm.monthlyDeposit, goalForm.profitPercent, goalForm.years]);
 
   const processedHistory = useMemo(() => {
@@ -193,7 +193,7 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
     records.forEach(r => totalDeposit += r.amount);
     
     processedHistory.forEach(h => {
-        totalAccruedProfit += (h as any).stepProfit;
+        totalAccruedProfit += h.stepProfit;
     });
 
     const wealthPortfolio = totalDeposit + totalAccruedProfit;
@@ -211,10 +211,13 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
   }, [processedHistory, goals, records]);
 
   const handleSaveGoal = () => {
-    if (!goalForm.name || !goalForm.targetAmount || !goalForm.monthlyDeposit) return;
+    const targetAmountStr = derivedGoalValues.targetAmount;
+    const maturityValueStr = derivedGoalValues.maturityValue;
 
-    const targetVal = parseFloat(goalForm.targetAmount);
-    const maturityVal = parseFloat(goalForm.maturityValue);
+    if (!goalForm.name || !targetAmountStr || !goalForm.monthlyDeposit) return;
+
+    const targetVal = parseFloat(targetAmountStr);
+    const maturityVal = parseFloat(maturityValueStr);
     const monthlyDepositVal = parseFloat(goalForm.monthlyDeposit);
     const yearsVal = parseFloat(goalForm.years);
     const profitVal = parseFloat(goalForm.profitPercent);
@@ -373,7 +376,6 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
     setGoals(prev => prev.map(g => g.id === bulkGoalId ? { ...g, currentAmount: g.currentAmount + totalAddedAmount } : g));
     
     setBulkInput('');
-    setBulkPreview([]);
     setIsBulkRecordModalOpen(false);
     showToast?.(`${newRecords.length} deposits added successfully!`, 'success');
   };
@@ -420,13 +422,6 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
     if (months > 0 || years === 0) result += `${months}M`;
     return result.trim();
   };
-
-  // Helper component for the green dashed circle with white tick
-  const VerifiedBadge = () => (
-    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-emerald-600 rounded-full border border-dashed border-emerald-300 shadow-sm transition-transform hover:scale-110">
-      <Check size={10} strokeWidth={4} className="text-white" />
-    </div>
-  );
 
   return (
     <div className="space-y-8 pb-24 animate-in fade-in duration-500">
@@ -577,7 +572,7 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-white/10 rounded-xl"><History size={16} className="text-white/70" /></div>
                           <div>
-                            <p className="text-[9px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">{t('maturityDate', language)}</p>
+                            <p className="text-[9px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">{t.maturityDate}</p>
                             <p className="text-[13px] font-black text-white/80 leading-none">{goal.maturityDate ? formatDate(goal.maturityDate) : 'N/A'}</p>
                           </div>
                         </div>
@@ -622,7 +617,7 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
               <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
                 <div className="w-2 h-2 bg-emerald-600 rounded-full" /> Transaction History
               </h3>
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
                 <Filter size={14} className="text-slate-400 ml-1" />
                 <select 
                   value={historyGoalFilter} 
@@ -653,7 +648,7 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
                     {filteredProcessedHistory.length > 0 ? filteredProcessedHistory.map(record => {
                       const goal = goals.find(g => g.id === record.goalId);
                       return (
-                        <tr key={record.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
+                        <tr key={record.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors group">
                           <td className="px-5 py-2.5">
                             <span className="text-[11px] font-black text-slate-800 dark:text-white uppercase leading-none tracking-tight">{formatDate(record.date)}</span>
                           </td>
@@ -669,11 +664,11 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
                           <td className="px-5 py-2.5">
                             <div className="flex items-center gap-1.5">
                               <TrendingUp size={12} className="text-emerald-500" />
-                              <span className="text-[12px] font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">৳{(record as any).stepProfit.toLocaleString()}</span>
+                              <span className="text-[12px] font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">৳{record.stepProfit?.toLocaleString()}</span>
                             </div>
                           </td>
                           <td className="px-5 py-2.5">
-                            <span className="text-[13px] font-black text-blue-600 dark:text-indigo-400 tracking-tighter">৳{(record as any).runningBalance.toLocaleString()}</span>
+                            <span className="text-[13px] font-black text-blue-600 dark:text-indigo-400 tracking-tighter">৳{record.runningBalance?.toLocaleString()}</span>
                           </td>
                           <td className="px-5 py-2.5 text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -799,7 +794,7 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
                   <div className="relative">
                     <input 
                       type="number" 
-                      value={goalForm.targetAmount} 
+                      value={derivedGoalValues.targetAmount || goalForm.targetAmount} 
                       readOnly
                       placeholder="-"
                       className="w-full h-10 px-4 bg-slate-200 dark:bg-black/40 border border-slate-400 dark:border-slate-600 rounded-xl text-[13px] font-semibold text-slate-900 dark:text-white outline-none cursor-default shadow-sm" 
@@ -812,7 +807,7 @@ const SavingsInfoView: React.FC<SavingsInfoViewProps> = ({
                   <div className="relative">
                     <input 
                       type="number" 
-                      value={goalForm.maturityValue} 
+                      value={derivedGoalValues.maturityValue || goalForm.maturityValue} 
                       readOnly 
                       placeholder="-" 
                       className="w-full h-10 px-4 bg-slate-200 dark:bg-black/40 border border-slate-400 dark:border-slate-600 rounded-xl text-[13px] font-semibold text-slate-900 dark:text-white outline-none cursor-default shadow-sm" 

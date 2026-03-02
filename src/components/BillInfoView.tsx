@@ -10,31 +10,31 @@ import {
   Trash2, 
   Pencil,
   AlertTriangle,
-  Check,
   FileSpreadsheet,
   Upload,
   AlertCircle,
-  Info,
   BarChart3
 } from 'lucide-react';
-import { BillRecord, Transaction } from './types';
+import { BillRecord, Transaction, LanguageType, ThemeType } from '../types';
 
 interface BillInfoViewProps {
-  bills: BillRecord[];
-  setBills: React.Dispatch<React.SetStateAction<BillRecord[]>>;
-  onAddTransaction: (tx: Omit<Transaction, 'id'>) => string;
-  onEditTransaction: (tx: Transaction) => void;
-  onDeleteTransaction: (id: string) => void;
+  language?: LanguageType;
+  theme?: ThemeType;
+  bills?: BillRecord[];
+  setBills?: React.Dispatch<React.SetStateAction<BillRecord[]>>;
+  onAddTransaction?: (tx: Omit<Transaction, 'id'>) => string;
+  onEditTransaction?: (tx: Transaction) => void;
+  onDeleteTransaction?: (id: string) => void;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 const BillInfoView: React.FC<BillInfoViewProps> = ({ 
-  bills, 
-  setBills, 
-  onAddTransaction, 
-  onEditTransaction, 
-  onDeleteTransaction,
-  showToast
+  bills = [], 
+  setBills = () => {}, 
+  onAddTransaction = () => '', 
+  onEditTransaction = () => {}, 
+  onDeleteTransaction = () => {},
+  showToast = () => {}
 }) => {
   const [selectedYear, setSelectedYear] = useState<string>('2026');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,32 +45,32 @@ const BillInfoView: React.FC<BillInfoViewProps> = ({
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
   const [formData, setFormData] = useState({
-    type: 'Electric' as 'Electric' | 'Wifi',
+    type: 'Electric' as 'Electric' | 'Wifi' | 'income' | 'expense',
     amount: '',
     date: new Date().toISOString().split('T')[0],
     note: ''
   });
 
   const [bulkInput, setBulkInput] = useState('');
-  const [bulkPreview, setBulkPreview] = useState<any[]>([]);
+  const [bulkPreview, setBulkPreview] = useState<Omit<BillRecord, 'id' | 'transactionId'>[]>([]);
 
-  useMemo(() => {
+  React.useEffect(() => {
     if (!bulkInput.trim()) {
       setBulkPreview([]);
       return;
     }
     const lines = bulkInput.trim().split('\n');
-    const parsed: any[] = [];
+    const parsed: Omit<BillRecord, 'id' | 'transactionId'>[] = [];
 
     lines.slice(0, 50).forEach(line => {
       let parts = line.split('\t');
       if (parts.length < 2) parts = line.split('  ').filter(p => p.trim().length > 0);
       
       if (parts.length >= 2) {
-        let datePart = parts[0].trim();
-        let amountPart = parts[1].trim().replace(/,/g, '');
-        let typePart = parts[2] ? parts[2].trim() : 'Electric';
-        let notePart = parts[3] ? parts[3].trim() : '';
+        const datePart = parts[0].trim();
+        const amountPart = parts[1].trim().replace(/,/g, '');
+        const typePart = parts[2] ? parts[2].trim() : 'Electric';
+        const notePart = parts[3] ? parts[3].trim() : '';
 
         const isValidDate = !isNaN(new Date(datePart).getTime());
         const amount = parseFloat(amountPart);
@@ -82,6 +82,9 @@ const BillInfoView: React.FC<BillInfoViewProps> = ({
 
         if (isValidDate && !isNaN(amount)) {
           parsed.push({
+            title: notePart || `${finalType} Bill`,
+            category: 'Bill',
+            status: 'Paid',
             amount,
             date: new Date(datePart).toISOString().split('T')[0],
             type: finalType,
@@ -167,6 +170,9 @@ const BillInfoView: React.FC<BillInfoViewProps> = ({
 
       const newBill: BillRecord = {
         id: Math.random().toString(36).substr(2, 9),
+        title: formData.note || `${formData.type} Bill`,
+        category: 'Bill',
+        status: 'Paid',
         type: formData.type,
         amount: amt,
         date: formData.date,
@@ -198,6 +204,9 @@ const BillInfoView: React.FC<BillInfoViewProps> = ({
 
       const newBill: BillRecord = {
         id: Math.random().toString(36).substr(2, 9),
+        title: item.title,
+        category: item.category,
+        status: item.status,
         type: item.type,
         amount: item.amount,
         date: item.date,
@@ -251,7 +260,7 @@ const BillInfoView: React.FC<BillInfoViewProps> = ({
           <select 
             value={selectedYear} 
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="bg-slate-50 dark:bg-slate-800 border border-indigo-100 dark:border-indigo-900/30 rounded-xl px-3 py-1.5 text-[13px] font-black text-indigo-600 dark:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-indigo-900/30 rounded-xl px-3 py-1.5 text-[13px] font-black text-indigo-600 dark:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
           >
             {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
           </select>
@@ -305,7 +314,7 @@ const BillInfoView: React.FC<BillInfoViewProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[350px]">
-          <div className="px-5 py-4 border-b border-slate-50 dark:border-slate-800 bg-amber-100/40 dark:bg-amber-900/20">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-amber-900/20">
             <h3 className="text-[14px] font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
               <Zap size={14} className="text-amber-500" /> Electric Bills History
             </h3>
@@ -313,7 +322,7 @@ const BillInfoView: React.FC<BillInfoViewProps> = ({
           <div className="p-4 space-y-2.5 overflow-y-auto flex-1 custom-scrollbar">
             {stats.electric.list.length > 0 ? (
               stats.electric.list.sort((a,b) => b.date.localeCompare(a.date)).map(bill => (
-                <div key={bill.id} className="p-3 bg-amber-100/60 dark:bg-amber-900/30 border border-amber-200/50 dark:border-amber-800/50 rounded-xl flex items-center justify-between group hover:bg-amber-200/80 dark:hover:bg-amber-900/40 transition-all shadow-sm">
+                <div key={bill.id} className="p-3 bg-white dark:bg-amber-900/30 border border-slate-100 dark:border-amber-800/50 rounded-xl flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-amber-900/40 transition-all shadow-sm">
                   <div className="flex flex-col">
                     <span className="text-[11px] font-black text-slate-900 dark:text-white leading-tight">{formatDate(bill.date)}</span>
                     <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-0.5">{bill.note || 'Regular Bill'}</span>
@@ -334,7 +343,7 @@ const BillInfoView: React.FC<BillInfoViewProps> = ({
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[350px]">
-          <div className="px-5 py-4 border-b border-slate-50 dark:border-slate-800 bg-blue-100/40 dark:bg-blue-900/20">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-blue-900/20">
             <h3 className="text-[14px] font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
               <Wifi size={14} className="text-blue-600" /> Wifi Bills History
             </h3>
@@ -342,7 +351,7 @@ const BillInfoView: React.FC<BillInfoViewProps> = ({
           <div className="p-4 space-y-2.5 overflow-y-auto flex-1 custom-scrollbar">
             {stats.wifi.list.length > 0 ? (
               stats.wifi.list.sort((a,b) => b.date.localeCompare(a.date)).map(bill => (
-                <div key={bill.id} className="p-3 bg-blue-100/60 dark:bg-blue-900/30 border border-blue-200/50 dark:border-blue-800/50 rounded-xl flex items-center justify-between group hover:bg-blue-200/80 dark:hover:bg-blue-900/40 transition-all shadow-sm">
+                <div key={bill.id} className="p-3 bg-white dark:bg-blue-900/30 border border-slate-100 dark:border-blue-800/50 rounded-xl flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-blue-900/40 transition-all shadow-sm">
                   <div className="flex flex-col">
                     <span className="text-[11px] font-black text-slate-900 dark:text-white leading-tight">{formatDate(bill.date)}</span>
                     <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-0.5">{bill.note || 'Regular Bill'}</span>

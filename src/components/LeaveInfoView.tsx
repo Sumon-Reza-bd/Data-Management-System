@@ -16,22 +16,31 @@ import {
   TrendingUp,
   Check
 } from 'lucide-react';
-import { LeaveType, LeaveRecord } from './types';
+import { LeaveType, LeaveRecord, LanguageType, ThemeType } from '../types';
+
+// Helper component for the green dashed circle with white tick
+const VerifiedBadge = () => (
+  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-emerald-600 rounded-full border border-dashed border-emerald-300 shadow-sm transition-transform hover:scale-110">
+    <Check size={10} strokeWidth={4} className="text-white" />
+  </div>
+);
 
 interface LeaveInfoViewProps {
-  leaveQuotas: LeaveType[];
-  setLeaveQuotas: React.Dispatch<React.SetStateAction<LeaveType[]>>;
-  leaveHistory: LeaveRecord[];
-  setLeaveHistory: React.Dispatch<React.SetStateAction<LeaveRecord[]>>;
+  language?: LanguageType;
+  theme?: ThemeType;
+  leaveQuotas?: LeaveType[];
+  setLeaveQuotas?: React.Dispatch<React.SetStateAction<LeaveType[]>>;
+  leaveHistory?: LeaveRecord[];
+  setLeaveHistory?: React.Dispatch<React.SetStateAction<LeaveRecord[]>>;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 const LeaveInfoView: React.FC<LeaveInfoViewProps> = ({ 
-  leaveQuotas, 
-  setLeaveQuotas, 
-  leaveHistory, 
-  setLeaveHistory,
-  showToast
+  leaveQuotas = [], 
+  setLeaveQuotas = () => {}, 
+  leaveHistory = [], 
+  setLeaveHistory = () => {},
+  showToast = () => {}
 }) => {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
@@ -129,15 +138,28 @@ const LeaveInfoView: React.FC<LeaveInfoViewProps> = ({
   };
 
   const handleApplyLeave = () => {
-    if (!applyFormData.startDate || !applyFormData.endDate) return;
+    if (!applyFormData.startDate || !applyFormData.endDate) {
+      showToast?.('Please select both start and end dates', 'error');
+      return;
+    }
+    
     const diffDays = calculateDays(applyFormData.startDate, applyFormData.endDate);
+    if (diffDays <= 0) {
+      showToast?.('End date must be after or same as start date', 'error');
+      return;
+    }
+
     const selectedType = leaveQuotas.find(l => l.id === applyFormData.typeId);
-    if (!selectedType) return;
+    const typeName = selectedType ? selectedType.type : (
+      applyFormData.typeId === 'casual' ? 'Casual Leave' :
+      applyFormData.typeId === 'medical' ? 'Medical Leave' :
+      applyFormData.typeId === 'annual' ? 'Annual Leave' : 'Leave'
+    );
 
     const newRecord: LeaveRecord = {
       id: Math.random().toString(36).substr(2, 9),
       typeId: applyFormData.typeId,
-      typeName: selectedType.type,
+      typeName: typeName,
       startDate: applyFormData.startDate,
       endDate: applyFormData.endDate,
       totalDays: diffDays,
@@ -148,10 +170,12 @@ const LeaveInfoView: React.FC<LeaveInfoViewProps> = ({
 
     setLeaveHistory(prev => [newRecord, ...prev]);
     setIsApplyModalOpen(false);
+    
     const recordYear = applyFormData.startDate.split('-')[0];
     if (recordYear) setSelectedYear(recordYear);
+    
     setApplyFormData({ typeId: 'casual', startDate: '', endDate: '', reason: '', status: 'Pending' });
-    showToast?.('Leave application submitted!', 'success');
+    showToast?.('Leave application submitted successfully!', 'success');
   };
 
   const confirmDelete = () => {
@@ -204,16 +228,9 @@ const LeaveInfoView: React.FC<LeaveInfoViewProps> = ({
   const approvedLeaves = filteredHistory.filter(r => r.status === 'Approved');
   const pendingLeaves = filteredHistory.filter(r => r.status === 'Pending' || r.status === 'Rejected');
 
-  // Helper component for the green dashed circle with white tick
-  const VerifiedBadge = () => (
-    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-emerald-600 rounded-full border border-dashed border-emerald-300 shadow-sm transition-transform hover:scale-110">
-      <Check size={10} strokeWidth={4} className="text-white" />
-    </div>
-  );
-
   const renderHistoryTable = (data: LeaveRecord[], title: string, colorClass: string) => (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col h-full">
-      <div className={`p-4 border-b border-${colorClass}-100 dark:border-${colorClass}-800/30 bg-${colorClass}-50/50 dark:bg-${colorClass}-900/10 flex items-center justify-between transition-colors`}>
+      <div className={`p-4 border-b border-slate-100 dark:border-${colorClass}-800/30 bg-slate-50/30 dark:bg-${colorClass}-900/10 flex items-center justify-between transition-colors`}>
         <h3 className={`text-[11px] font-black text-${colorClass}-700 dark:text-${colorClass}-300 uppercase tracking-tight flex items-center gap-2`}>
           <div className={`w-1.5 h-1.5 rounded-full bg-${colorClass}-600`} /> 
           {title}
@@ -270,12 +287,12 @@ const LeaveInfoView: React.FC<LeaveInfoViewProps> = ({
     <div className="space-y-6 pb-24 animate-in fade-in duration-500 relative min-h-[calc(100vh-120px)]">
       <div className="flex flex-wrap items-center justify-between bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 pr-3 border-r border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2 pr-3 border-r border-slate-200 dark:border-slate-800">
             <LayoutGrid size={14} className="text-purple-600" />
             <span className="text-[11px] font-black text-slate-500 uppercase tracking-tight">Data Period</span>
           </div>
           <div className="flex items-center gap-2">
-            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white outline-none border border-slate-200 dark:border-slate-700 hover:border-purple-300 transition-colors min-w-[80px]">
+            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-white dark:bg-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white outline-none border border-slate-200 dark:border-slate-700 hover:border-purple-300 transition-colors min-w-[80px]">
               {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
             </select>
             <button 
@@ -327,11 +344,11 @@ const LeaveInfoView: React.FC<LeaveInfoViewProps> = ({
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                <div className="bg-white dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Limit</p>
                   <p className="text-[15px] font-black text-slate-800 dark:text-white leading-none">{leave.total} Days</p>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                <div className="bg-white dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Used ({selectedYear})</p>
                   <p className={`text-[15px] font-black leading-none ${usedForThisYear > 0 ? 'text-rose-500' : 'text-slate-400'}`}>{usedForThisYear} Days</p>
                 </div>
@@ -427,7 +444,7 @@ const LeaveInfoView: React.FC<LeaveInfoViewProps> = ({
                   <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">{type} Leave Limit</label>
                   <input 
                     type="number" 
-                    value={(editFormData as any)[type]} 
+                    value={editFormData[type as keyof typeof editFormData]} 
                     onChange={(e) => setEditFormData({...editFormData, [type]: parseInt(e.target.value) || 0})} 
                     className="w-full h-10 px-4 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[13px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm" 
                   />
@@ -452,68 +469,68 @@ const LeaveInfoView: React.FC<LeaveInfoViewProps> = ({
               </div>
               <button onClick={() => { setIsApplyModalOpen(false); setIsEditRecordModalOpen(false); setEditingRecord(null); }} className="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"><X size={20} /></button>
             </div>
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Leave Type</label>
+            <div className="p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Leave Type</label>
                   <select 
                     value={applyFormData.typeId} 
                     onChange={(e) => setApplyFormData({...applyFormData, typeId: e.target.value})} 
-                    className="w-full h-10 px-4 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[13px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm appearance-none cursor-pointer"
+                    className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[12px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm appearance-none cursor-pointer"
                   >
                     <option value="casual">Casual Leave</option>
                     <option value="medical">Medical Leave</option>
                     <option value="annual">Annual Leave</option>
                   </select>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Status</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Status</label>
                   <select 
                     value={applyFormData.status} 
-                    onChange={(e) => setApplyFormData({...applyFormData, status: e.target.value as any})} 
-                    className="w-full h-10 px-4 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[13px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm appearance-none cursor-pointer"
+                    onChange={(e) => setApplyFormData({...applyFormData, status: e.target.value as 'Approved' | 'Pending' | 'Rejected'})} 
+                    className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[12px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm appearance-none cursor-pointer"
                   >
                     <option value="Approved">Approved</option>
                     <option value="Pending">Pending</option>
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Start Date</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Start Date</label>
                   <input 
                     type="date" 
                     value={applyFormData.startDate} 
                     onChange={(e) => setApplyFormData({...applyFormData, startDate: e.target.value})} 
-                    className="w-full h-10 px-4 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[12px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm [color-scheme:light] dark:[color-scheme:dark]" 
+                    className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[11px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm [color-scheme:light] dark:[color-scheme:dark]" 
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">End Date</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">End Date</label>
                   <input 
                     type="date" 
                     value={applyFormData.endDate} 
                     onChange={(e) => setApplyFormData({...applyFormData, endDate: e.target.value})} 
-                    className="w-full h-10 px-4 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[12px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm [color-scheme:light] dark:[color-scheme:dark]" 
+                    className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[11px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm [color-scheme:light] dark:[color-scheme:dark]" 
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Detailed Reason</label>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Detailed Reason</label>
                 <textarea 
                   value={applyFormData.reason} 
                   onChange={(e) => setApplyFormData({...applyFormData, reason: e.target.value})} 
-                  rows={3} 
+                  rows={2} 
                   placeholder="Briefly explain the purpose..." 
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[13px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm resize-none" 
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[12px] font-semibold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all shadow-sm resize-none" 
                 />
               </div>
 
               {applyFormData.startDate && applyFormData.endDate && (
-                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                <div className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
                   <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <CalendarDays size={16} />
-                    <span className="text-[11px] font-black uppercase tracking-tight">Total Duration: {calculateDays(applyFormData.startDate, applyFormData.endDate)} Days</span>
+                    <CalendarDays size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-tight">Total Duration: {calculateDays(applyFormData.startDate, applyFormData.endDate)} Days</span>
                   </div>
                   <VerifiedBadge />
                 </div>
@@ -522,9 +539,9 @@ const LeaveInfoView: React.FC<LeaveInfoViewProps> = ({
               <button 
                 onClick={isEditRecordModalOpen ? handleUpdateHistoryRecord : handleApplyLeave} 
                 disabled={!applyFormData.startDate || !applyFormData.endDate} 
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-black text-[14px] uppercase shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-2"
+                className="w-full h-10 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-black text-[13px] uppercase shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-1"
               >
-                {isEditRecordModalOpen ? <Save size={18} /> : <Send size={18} />}
+                {isEditRecordModalOpen ? <Save size={16} /> : <Send size={16} />}
                 {isEditRecordModalOpen ? 'Update Record' : 'Submit Application'}
               </button>
             </div>

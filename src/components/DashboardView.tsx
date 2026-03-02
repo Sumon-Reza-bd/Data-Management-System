@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { 
   DollarSign, 
@@ -8,27 +7,34 @@ import {
   ChevronRight,
   AlertCircle
 } from 'lucide-react';
-import { Transaction, SavingsGoal, Reminder } from './types';
-import { ICONS } from './constants';
-import { getBengaliMonthDetails, toBnDigits } from './utils';
+import { Transaction, SavingsGoal, Reminder, LanguageType, AttendanceRecord, PayrollProfile } from '../types';
+import { ICONS } from '../constants';
+import { getBengaliMonthDetails, toBnDigits } from '../utils';
 
 interface DashboardViewProps {
-  language: 'English' | 'বাংলা';
-  profile: any;
-  transactions: Transaction[];
-  savingsGoals: SavingsGoal[];
-  attendanceList: any[];
-  reminders: Reminder[];
+  language: LanguageType;
+  profile?: PayrollProfile;
+  transactions?: Transaction[];
+  savingsGoals?: SavingsGoal[];
+  attendanceList?: AttendanceRecord[];
+  reminders?: Reminder[];
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile, transactions, savingsGoals, attendanceList, reminders }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ 
+  language, 
+  profile = { name: 'User' } as PayrollProfile, 
+  transactions = [], 
+  savingsGoals = [], 
+  attendanceList = [], 
+  reminders = []
+}) => {
   // Calendar States
   const [enCalendarDate, setEnCalendarDate] = useState(new Date());
   const [bnCalendarDate, setBnCalendarDate] = useState(new Date());
   const [selectedDateInfo, setSelectedDateInfo] = useState<{ en: string; bn: string } | null>(null);
 
   const translations = {
-    English: {
+    en: {
       welcome: 'Welcome back,',
       overview: 'System Overview',
       monthlySpending: 'Monthly Spending',
@@ -45,7 +51,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
       day: 'DAY',
       days: 'DAYS'
     },
-    'বাংলা': {
+    bn: {
       welcome: 'স্বাগতম,',
       overview: 'সিস্টেম ওভারভিউ',
       monthlySpending: 'মাসিক ব্যয়',
@@ -69,7 +75,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
   const formatCurrency = (val: number) => {
     const formatted = Math.abs(val).toLocaleString();
     const sign = val < 0 ? '-' : '';
-    return language === 'English' ? `${sign}৳${formatted}` : `${sign}৳${toBnDigits(formatted)}`;
+    return language === 'en' ? `${sign}৳${formatted}` : `${sign}৳${toBnDigits(formatted)}`;
   };
 
   const getDayDiff = (dateStr: string) => {
@@ -88,11 +94,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
     const expense = monthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     const totalSavings = (savingsGoals || []).reduce((s, g) => s + g.currentAmount, 0);
     
-    // Calculate dynamic Attendance Rate
-    const relevantAttendance = (attendanceList || []).filter(a => 
+    // Calculate dynamic Attendance Rate for current month
+    const currentMonthAttendance = (attendanceList || []).filter(a => a.date.startsWith(currentMonthStr));
+    
+    const relevantAttendance = currentMonthAttendance.filter(a => 
       ['On Time', 'Late', 'Absent', 'Out Missing'].includes(a.status)
     );
-    const presentDays = (attendanceList || []).filter(a => ['On Time', 'Late'].includes(a.status)).length;
+    const presentDays = currentMonthAttendance.filter(a => ['On Time', 'Late'].includes(a.status)).length;
     const attendanceRate = relevantAttendance.length > 0 
       ? Math.round((presentDays / relevantAttendance.length) * 100) 
       : 0;
@@ -111,6 +119,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
       savingsProgress 
     };
   }, [transactions, savingsGoals, attendanceList]);
+
+  // Unified activity feed
+  const activities = useMemo(() => {
+    const txActivities = transactions.map(tx => ({
+      id: `tx-${tx.id}`,
+      type: 'transaction',
+      category: tx.category,
+      amount: tx.amount,
+      date: tx.date,
+      txType: tx.type as string,
+      title: tx.description || tx.category
+    }));
+
+    return [...txActivities]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions]);
 
   // English Calendar logic
   const englishDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -214,7 +238,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
     { 
       label: t.attendance, 
       value: `${stats.attendanceRate}%`, 
-      icon: <ICONS.Clock size={18} />, 
+      icon: (
+        <div className="relative">
+          <ICONS.Clock size={18} />
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full animate-pulse border border-white dark:border-slate-900" />
+        </div>
+      ), 
       color: 'blue',
       progress: stats.attendanceRate 
     }
@@ -233,36 +262,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
       </div>
 
       {/* Main Layout Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         
         {/* Left Column: Stats */}
-        <div className="lg:col-span-6 grid grid-cols-2 gap-3 content-start">
+        <div className="lg:col-span-6 grid grid-cols-2 gap-4">
           {mainStats.map((stat, i) => (
             <div 
               key={i} 
-              className={`p-3 pt-3 pb-3 h-[112px] rounded-xl border-2 shadow-sm flex flex-col justify-between group transition-all duration-300 ${getCardThemedClasses(stat.color)}`}
+              className={`p-3.5 rounded-2xl border-2 shadow-sm flex flex-col justify-between group transition-all duration-300 min-h-[125px] ${getCardThemedClasses(stat.color)}`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex flex-col min-w-0">
-                  <p className={`text-[10px] font-black uppercase tracking-widest mb-0.5 text-${stat.color}-600 dark:text-${stat.color}-400 truncate`}>
+                  <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 text-${stat.color}-600 dark:text-${stat.color}-400 truncate`}>
                     {stat.label}
                   </p>
-                  <h3 className="text-[17px] font-black text-slate-800 dark:text-white tracking-tight truncate">
+                  <h3 className="text-lg font-black text-slate-800 dark:text-white tracking-tight truncate">
                     {typeof stat.value === 'number' ? formatCurrency(stat.value) : stat.value}
                   </h3>
                 </div>
-                <div className={`w-8 h-8 rounded-lg bg-${stat.color}-500/10 text-${stat.color}-600 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0`}>
+                <div className={`w-8 h-8 rounded-xl bg-${stat.color}-500/10 text-${stat.color}-600 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0`}>
                   {stat.icon}
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                <div className="flex justify-between items-center text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                   <span>Status</span>
                   <span className={`text-${stat.color}-600`}>{stat.progress}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
                   <div 
-                    className={`h-full ${getProgressColor(stat.color)} transition-all duration-1000 ease-out rounded-full`}
+                    className={`h-full ${getProgressColor(stat.color)} transition-all duration-1000 ease-out rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)]`}
                     style={{ width: `${stat.progress}%` }}
                   />
                 </div>
@@ -380,25 +409,44 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
           <div className="bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-6 shadow-sm overflow-hidden min-h-[300px] flex flex-col transition-all hover:border-indigo-200 dark:hover:border-indigo-800/50">
-            <h3 className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 -mx-6 -mt-6 mb-6 px-6 py-3 bg-indigo-50/50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800/50 flex items-center gap-2 uppercase tracking-tight">
-              <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" /> {t.latestActivity}
+            <h3 className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 -mx-6 -mt-6 mb-6 px-6 py-3 bg-indigo-50/50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800/50 flex items-center justify-between uppercase tracking-tight">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" /> {t.latestActivity}
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-full border border-emerald-100 dark:border-emerald-800">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                </span>
+                <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live</span>
+              </div>
             </h3>
             <div className="space-y-3 flex-1">
-              {transactions.length > 0 ? (
-                transactions.slice(0, 8).map(tx => (
-                  <div key={tx.id} className={`p-4 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-200/50 dark:border-slate-800 flex justify-between items-center border-l-4 ${tx.type === 'income' ? 'border-l-emerald-500' : 'border-l-rose-500'} hover:translate-x-1 transition-transform`}>
+              {activities.length > 0 ? (
+                activities.slice(0, 8).map(act => (
+                  <div key={act.id} className={`p-4 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-200/50 dark:border-slate-800 flex justify-between items-center border-l-4 ${
+                    act.type === 'transaction' 
+                      ? (act.txType === 'income' ? 'border-l-emerald-500' : 'border-l-rose-500') 
+                      : (act.type === 'attendance' ? 'border-l-indigo-500' : 'border-l-amber-500')
+                  } hover:translate-x-1 transition-transform`}>
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                        {tx.type === 'income' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        act.type === 'transaction' 
+                          ? (act.txType === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600') 
+                          : (act.type === 'attendance' ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600')
+                      }`}>
+                        {act.type === 'transaction' ? (act.txType === 'income' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />) : <ICONS.Clock size={14} />}
                       </div>
                       <div>
-                        <p className="text-[12px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">{tx.category}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{tx.date}</p>
+                        <p className="text-[12px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">{act.title}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{act.date} • {act.category}</p>
                       </div>
                     </div>
-                    <span className={`text-[13px] font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                    </span>
+                    {act.amount !== null && (
+                      <span className={`text-[13px] font-black ${act.txType === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {act.txType === 'income' ? '+' : '-'}{formatCurrency(act.amount)}
+                      </span>
+                    )}
                   </div>
                 ))
               ) : (
@@ -439,7 +487,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
                            ) : (
                              <span className={`px-1.5 py-0.5 ${isOverdue ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800/50' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/50'} text-[8px] font-black uppercase rounded border flex items-center gap-0.5`}>
                                {isOverdue && <AlertCircle size={8} />}
-                               {language === 'English' ? absDiff : toBnDigits(absDiff)} {absDiff === 1 ? t.day : t.days} {isOverdue ? t.overdue : t.upcoming}
+                               {language === 'en' ? absDiff : toBnDigits(absDiff)} {absDiff === 1 ? t.day : t.days} {isOverdue ? t.overdue : t.upcoming}
                              </span>
                            )}
                          </div>
@@ -464,7 +512,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white dark:bg-slate-900 w-full max-w-[320px] rounded-[32px] p-6 text-center shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200">
             <h2 className="text-[16px] font-black text-slate-900 dark:text-white mb-4 uppercase tracking-tight">
-              {language === 'English' ? 'Date Details' : 'তারিখের বিস্তারিত'}
+              {language === 'en' ? 'Date Details' : 'তারিখের বিস্তারিত'}
             </h2>
             
             <div className="space-y-3 mb-6">
@@ -482,7 +530,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ language, profile,
               onClick={() => setSelectedDateInfo(null)}
               className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase hover:bg-slate-200 transition-all active:scale-95"
             >
-              {language === 'English' ? 'Close' : 'বন্ধ করুন'}
+              {language === 'en' ? 'Close' : 'বন্ধ করুন'}
             </button>
           </div>
         </div>

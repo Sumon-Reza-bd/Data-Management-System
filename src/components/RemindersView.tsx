@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Bell, 
   Plus, 
@@ -8,13 +8,12 @@ import {
   Pencil, 
   X,
   Save,
-  BellRing,
   AlertCircle,
   FileSpreadsheet,
   Upload,
   AlertTriangle
 } from 'lucide-react';
-import { Reminder } from './types';
+import { Reminder } from '../types';
 
 interface RemindersViewProps {
   language: 'English' | 'বাংলা';
@@ -30,7 +29,6 @@ const RemindersView: React.FC<RemindersViewProps> = ({ language, reminders, setR
   const [reminderToDelete, setReminderToDelete] = useState<string | null>(null);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [bulkInput, setBulkInput] = useState('');
-  const [bulkPreview, setBulkPreview] = useState<Omit<Reminder, 'id' | 'completed'>[]>([]);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -119,10 +117,9 @@ const RemindersView: React.FC<RemindersViewProps> = ({ language, reminders, setR
     return 'medium';
   };
 
-  useEffect(() => {
+  const bulkPreview = useMemo(() => {
     if (!bulkInput.trim()) {
-      setBulkPreview([]);
-      return;
+      return [];
     }
     const lines = bulkInput.trim().split('\n');
     const parsed: Omit<Reminder, 'id' | 'completed'>[] = [];
@@ -132,9 +129,9 @@ const RemindersView: React.FC<RemindersViewProps> = ({ language, reminders, setR
       if (parts.length < 2) parts = line.split('  ').filter(p => p.trim().length > 0);
       
       if (parts.length >= 2) {
-        let datePart = parts[0].trim();
-        let titlePart = parts[1].trim();
-        let priorityPart = parts[2] ? parts[2].trim() : 'medium';
+        const datePart = parts[0].trim();
+        const titlePart = parts[1].trim();
+        const priorityPart = parts[2] ? parts[2].trim() : 'medium';
 
         const isValidDate = !isNaN(new Date(datePart).getTime());
         if (isValidDate && titlePart) {
@@ -148,7 +145,7 @@ const RemindersView: React.FC<RemindersViewProps> = ({ language, reminders, setR
         }
       }
     });
-    setBulkPreview(parsed);
+    return parsed;
   }, [bulkInput]);
 
   const groupedReminders = useMemo(() => {
@@ -230,7 +227,6 @@ const RemindersView: React.FC<RemindersViewProps> = ({ language, reminders, setR
 
     setReminders(prev => [...newReminders, ...prev]);
     setBulkInput('');
-    setBulkPreview([]);
     setIsBulkModalOpen(false);
     showToast?.(t.importSuccess, 'success');
   };
@@ -282,7 +278,7 @@ const RemindersView: React.FC<RemindersViewProps> = ({ language, reminders, setR
         <div className="flex items-center gap-2">
           {!reminder.completed && (
             <button 
-              onClick={() => { setEditingReminder(reminder); setFormData({...formData, title: reminder.title, date: reminder.date, priority: reminder.priority as any, note: reminder.note || ''}); setIsModalOpen(true); }}
+              onClick={() => { setEditingReminder(reminder); setFormData({...formData, title: reminder.title, date: reminder.date, priority: reminder.priority, note: reminder.note || ''}); setIsModalOpen(true); }}
               className="w-9 h-9 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100 dark:border-indigo-800 shadow-sm active:scale-95"
             >
               <Pencil size={15} />
@@ -422,7 +418,7 @@ const RemindersView: React.FC<RemindersViewProps> = ({ language, reminders, setR
                   <div className="relative">
                     <select 
                       value={formData.priority}
-                      onChange={(e) => setFormData({...formData, priority: e.target.value as any})}
+                      onChange={(e) => setFormData({...formData, priority: e.target.value as 'high' | 'medium' | 'low'})}
                       className="w-full h-10 px-4 bg-slate-50 dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-xl text-[12px] font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-all shadow-sm appearance-none cursor-pointer"
                     >
                       <option value="high">{language === 'বাংলা' ? 'উচ্চ' : 'High'}</option>

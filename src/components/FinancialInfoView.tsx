@@ -4,17 +4,19 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell
 } from 'recharts';
-import { Transaction, CATEGORIES } from './types';
+import { Transaction, CATEGORIES, LanguageType, ThemeType } from '../types';
 import { 
   LayoutGrid, Pencil, Trash2, ArrowUpCircle, ArrowDownCircle, Wallet, Plus, 
-  X, Database, AlertTriangle, ArrowUp, ArrowDown, Save
+  X, AlertTriangle, ArrowUp, ArrowDown, Save
 } from 'lucide-react';
 
 interface FinancialInfoViewProps {
-  transactions: Transaction[];
-  onAdd: (tx: Omit<Transaction, 'id'>) => void;
-  onEdit: (tx: Transaction) => void;
-  onDelete: (id: string) => void;
+  language: LanguageType;
+  theme: ThemeType;
+  transactions?: Transaction[];
+  onAdd?: (tx: Omit<Transaction, 'id'>) => void;
+  onEdit?: (tx: Transaction) => void;
+  onDelete?: (id: string) => void;
 }
 
 const MONTH_OPTIONS = [
@@ -34,7 +36,12 @@ const MONTH_OPTIONS = [
 
 const IMAGE_THEME_COLORS = ['#1e3a8a', '#0891b2', '#10b981', '#4f46e5', '#7c3aed', '#db2777'];
 
-export const FinancialInfoView: React.FC<FinancialInfoViewProps> = ({ transactions, onAdd, onEdit, onDelete }) => {
+const FinancialInfoView: React.FC<FinancialInfoViewProps> = ({ 
+  transactions = [], 
+  onAdd = () => {}, 
+  onEdit = () => {}, 
+  onDelete = () => {} 
+}) => {
   const currentMonthValue = (new Date().getMonth() + 1).toString().padStart(2, '0');
   const currentYearValue = new Date().getFullYear().toString();
 
@@ -99,7 +106,15 @@ export const FinancialInfoView: React.FC<FinancialInfoViewProps> = ({ transactio
     return Object.values(monthlyMap);
   }, [selectedYear, transactions]);
 
-  const renderCustomizedLabel = (props: any) => {
+  const renderCustomizedLabel = (props: {
+    cx: number;
+    cy: number;
+    midAngle: number;
+    innerRadius: number;
+    outerRadius: number;
+    percent: number;
+    name: string;
+  }) => {
     const { cx, cy, midAngle, innerRadius, outerRadius, percent, name } = props;
     const RADIAN = Math.PI / 180;
     
@@ -437,3 +452,5 @@ export const FinancialInfoView: React.FC<FinancialInfoViewProps> = ({ transactio
     </div>
   );
 };
+
+export default FinancialInfoView;

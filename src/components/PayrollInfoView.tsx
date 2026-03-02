@@ -1,21 +1,7 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  FileText, 
-  Wallet, 
-  Calendar, 
-  Clock, 
-  Download, 
-  Printer, 
-  User,
-  Building2,
-  CalendarDays,
   CheckCircle2,
-  XCircle,
-  AlertCircle,
-  ChevronRight,
-  ArrowUp,
-  ArrowDown,
   Gift,
   Coins,
   Pencil,
@@ -27,12 +13,20 @@ import {
   Plus,
   Trash2,
   AlertTriangle,
-  Lock,
   Check
 } from 'lucide-react';
-import { PayrollProfile, SalaryHistoryItem } from './types';
+import { PayrollProfile, SalaryHistoryItem, LanguageType, ThemeType } from '../types';
+
+// Helper component for the green dashed circle with white tick
+const VerifiedBadge = () => (
+  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-emerald-600 rounded-full border border-dashed border-emerald-300 shadow-sm transition-transform hover:scale-110">
+    <Check size={10} strokeWidth={4} className="text-white" />
+  </div>
+);
 
 interface PayrollInfoViewProps {
+  language?: LanguageType;
+  theme?: ThemeType;
   payrollProfile: PayrollProfile;
   setPayrollProfile: React.Dispatch<React.SetStateAction<PayrollProfile>>;
   salaryHistory: SalaryHistoryItem[];
@@ -40,11 +34,17 @@ interface PayrollInfoViewProps {
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const PayrollInfoView: React.FC<PayrollInfoViewProps> = ({ payrollProfile, setPayrollProfile, salaryHistory, setSalaryHistory, showToast }) => {
+const PayrollInfoView: React.FC<PayrollInfoViewProps> = ({ 
+  payrollProfile, 
+  setPayrollProfile, 
+  salaryHistory, 
+  setSalaryHistory,
+  showToast = () => {}
+}) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <PaySlipSection profileData={payrollProfile} setProfileData={setPayrollProfile} showToast={showToast} />
-      <SalarySection profileBaseDeduction={payrollProfile.baseDeduction} history={salaryHistory} setHistory={setSalaryHistory} showToast={showToast} />
+      <SalarySection profileBaseDeduction={payrollProfile.baseDeduction} history={salaryHistory} setHistory={setSalaryHistory} />
     </div>
   );
 };
@@ -57,26 +57,35 @@ interface PaySlipProps {
 
 const PaySlipSection: React.FC<PaySlipProps> = ({ profileData, setProfileData, showToast }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [tempData, setTempData] = useState<any>(profileData);
+  const [tempData, setTempData] = useState<PayrollProfile>(profileData);
 
-  useEffect(() => {
-    if (!isEditModalOpen) return;
-    const gross = Number(tempData.grossSalary) || 0;
-    const baseDed = Number(tempData.baseDeduction) || 0;
+  const handleNumericChange = (field: keyof PayrollProfile, value: string) => {
+    const numValue = value === '' ? 0 : Number(value);
     
-    const basic = Math.round((gross - baseDed) / 1.5);
-    const rent = Math.round(basic / 2);
-    const yearly = Math.round(gross / 1.5);
-    const eid = Math.round((gross - baseDed) / 1.5);
-
-    setTempData((prev: any) => ({
-      ...prev,
-      basicSalary: basic,
-      houseRent: rent,
-      yearlyBonus: yearly,
-      eidBonus: eid
-    }));
-  }, [tempData.grossSalary, tempData.baseDeduction, isEditModalOpen]);
+    if (field === 'grossSalary' || field === 'baseDeduction') {
+      const gross = field === 'grossSalary' ? numValue : Number(tempData.grossSalary);
+      const baseDed = field === 'baseDeduction' ? numValue : Number(tempData.baseDeduction);
+      
+      const basic = Math.round((gross - baseDed) / 1.5);
+      const rent = Math.round(basic / 2);
+      const yearly = Math.round(gross / 1.5);
+      const eid = Math.round((gross - baseDed) / 1.5);
+      
+      setTempData((prev: PayrollProfile) => ({
+        ...prev,
+        [field]: numValue,
+        basicSalary: basic,
+        houseRent: rent,
+        yearlyBonus: yearly,
+        eidBonus: eid
+      }));
+    } else {
+      setTempData((prev: PayrollProfile) => ({
+        ...prev,
+        [field]: numValue
+      }));
+    }
+  };
 
   const modalRealTimeTotal = useMemo(() => {
     return (
@@ -101,8 +110,9 @@ const PaySlipSection: React.FC<PaySlipProps> = ({ profileData, setProfileData, s
 
   const handleSave = () => {
     const finalizedData = { ...tempData };
-    const numericFields = ['grossSalary', 'baseDeduction', 'medical', 'conveyance', 'food', 'attendanceBonus', 'tiffinBillDays', 'tiffinRate', 'basicSalary', 'houseRent', 'yearlyBonus', 'eidBonus'];
+    const numericFields: (keyof PayrollProfile)[] = ['grossSalary', 'baseDeduction', 'medical', 'conveyance', 'food', 'attendanceBonus', 'tiffinBillDays', 'tiffinRate', 'basicSalary', 'houseRent', 'yearlyBonus', 'eidBonus'];
     numericFields.forEach(field => {
+      // @ts-expect-error: finalizedData[field] might be string during conversion
       finalizedData[field] = finalizedData[field] === '' ? 0 : Number(finalizedData[field]);
     });
     
@@ -122,12 +132,6 @@ const PaySlipSection: React.FC<PaySlipProps> = ({ profileData, setProfileData, s
                                  profileData.attendanceBonus + 
                                  totalTiffin;
 
-  const handleNumericChange = (field: string, value: string) => {
-    setTempData({
-      ...tempData,
-      [field]: value === '' ? '' : Number(value)
-    });
-  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -139,13 +143,6 @@ const PaySlipSection: React.FC<PaySlipProps> = ({ profileData, setProfileData, s
       reader.readAsDataURL(file);
     }
   };
-
-  // Helper component for the green dashed circle with white tick
-  const VerifiedBadge = () => (
-    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-emerald-600 rounded-full border border-dashed border-emerald-300 shadow-sm transition-transform hover:scale-110">
-      <Check size={10} strokeWidth={4} className="text-white" />
-    </div>
-  );
 
   return (
     <div className="space-y-4">
@@ -381,15 +378,14 @@ interface SalaryProps {
   profileBaseDeduction: number;
   history: SalaryHistoryItem[];
   setHistory: React.Dispatch<React.SetStateAction<SalaryHistoryItem[]>>;
-  showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const SalarySection: React.FC<SalaryProps> = ({ profileBaseDeduction, history, setHistory, showToast }) => {
+const SalarySection: React.FC<SalaryProps> = ({ profileBaseDeduction, history, setHistory }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
-  const [formData, setFormData] = useState<any>({
+  const [formData, setFormData] = useState<{ year: number | string; inc: number | string }>({
     year: new Date().getFullYear(),
     inc: ''
   });
@@ -397,7 +393,7 @@ const SalarySection: React.FC<SalaryProps> = ({ profileBaseDeduction, history, s
   const sortedHistory = useMemo(() => {
     return [...history].sort((a, b) => {
       if (b.year !== a.year) return b.year - a.year;
-      return Number(a.id) - Number(b.id);
+      return Number(b.id) - Number(a.id);
     });
   }, [history]);
 
@@ -449,7 +445,6 @@ const SalarySection: React.FC<SalaryProps> = ({ profileBaseDeduction, history, s
         amt: calculations.amt,
         total: calculations.total
       } : h));
-      showToast?.('Salary increment updated!', 'success');
     } else {
       setHistory(prev => [
         { 
@@ -461,13 +456,12 @@ const SalarySection: React.FC<SalaryProps> = ({ profileBaseDeduction, history, s
         },
         ...prev
       ]);
-      showToast?.('Salary increment added!', 'success');
     }
     setIsModalOpen(false);
     setEditingId(null);
   };
 
-  const openEdit = (item: any) => {
+  const openEdit = (item: SalaryHistoryItem) => {
     setEditingId(item.id);
     setFormData({ year: item.year, inc: item.inc });
     setIsModalOpen(true);
@@ -481,17 +475,10 @@ const SalarySection: React.FC<SalaryProps> = ({ profileBaseDeduction, history, s
   const confirmDelete = () => {
     if (itemToDelete) {
       setHistory(prev => prev.filter(h => h.id !== itemToDelete));
-      showToast?.('Salary increment record deleted!', 'success');
     }
     setIsDeleteModalOpen(false);
     setItemToDelete(null);
   };
-
-  const VerifiedBadge = () => (
-    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-emerald-600 rounded-full border border-dashed border-emerald-300 shadow-sm transition-transform hover:scale-110">
-      <Check size={10} strokeWidth={4} className="text-white" />
-    </div>
-  );
 
   return (
     <div className="space-y-6">
